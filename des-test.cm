@@ -1,0 +1,9 @@
+Library
+    structure DESTest
+is
+    $/basis.cm
+    $/smlunitlib.cm
+
+    des.cm
+
+    des-test.sml
