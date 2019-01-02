@@ -1,0 +1,14 @@
+Library
+    structure ExtWord8Vector
+    structure Pad
+    structure AESImpl
+    structure AES
+is
+    $/basis.cm
+    $SMACKAGE/streamify/v0.2.0/streamify.cm
+
+    extword8vector.sml
+    pad.sml
+    crypt-sig.sml
+    block-cipher-fn.sml
+    aes.sml

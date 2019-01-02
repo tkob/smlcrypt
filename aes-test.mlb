@@ -1,0 +1,7 @@
+local
+    $(SML_LIB)/basis/basis.mlb
+    $(SMLUNIT_LIB)/smlunitlib.mlb
+    aes.mlb
+in
+    aes-test.sml
+end

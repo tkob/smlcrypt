@@ -34,4 +34,21 @@ structure ExtWord8Vector = struct
                                   (fn (b, acc) => byteToHex b::acc)
                                   []
                                   bytes)
+
+  fun rotateLeft bytes =
+        let
+          val len = Word8Vector.length bytes
+          fun f i = Word8Vector.sub (bytes, (i + 1) mod len)
+        in
+          Word8Vector.tabulate (len, f)
+        end
+
+  fun rotateRight bytes =
+        let
+          val len = Word8Vector.length bytes
+          fun f i = Word8Vector.sub (bytes, (i - 1 + len) mod len)
+        in
+          Word8Vector.tabulate (len, f)
+        end
+
 end
