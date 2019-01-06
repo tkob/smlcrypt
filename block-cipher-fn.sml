@@ -17,7 +17,6 @@ end) :> CRYPT = struct
   val andb = Word8.andb
   val notb = Word8.notb
   infix << >> orb andb
-  val xor = ExtWord8Vector.xor
 
   type instream = {
     src : BinStream.instream,
