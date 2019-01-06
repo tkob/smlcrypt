@@ -1,4 +1,6 @@
 functor BlockCipherFn(S : sig
+  val blockSize : int
+
   val blockEncrypt :
         (Word8Vector.vector * Word8Vector.vector * Word8Vector.vector)
         -> Word8Vector.vector
@@ -19,7 +21,7 @@ end) :> CRYPT = struct
 
   type instream = {
     src : BinStream.instream,
-    input8 : BinStream.instream -> Word8Vector.vector * BinStream.instream,
+    inputBlock : BinStream.instream -> Word8Vector.vector * BinStream.instream,
     iv : Word8Vector.vector,
     key : Word8Vector.vector,
     prev : Word8Vector.vector,
@@ -32,15 +34,15 @@ end) :> CRYPT = struct
         let
           val ins = TextIO.openString s
           val src = BinStream.fromFun (fn () => Byte.stringToBytes (TextIO.input ins))
-          fun input8 ins =
+          fun inputBlock ins =
                 let
-                  val (block, ins') = BinStream.inputN (ins, 8)
+                  val (block, ins') = BinStream.inputN (ins, S.blockSize)
                 in
                   (block, ins')
                 end
         in
           { src = src,
-            input8 = input8,
+            inputBlock = inputBlock,
             iv = Byte.stringToBytes iv,
             key = Byte.stringToBytes key,
             prev = Byte.stringToBytes "",
@@ -52,24 +54,24 @@ end) :> CRYPT = struct
   fun openBytes' operate (pad, unpad) (bytes, iv, key) =
         openString' operate (pad, unpad) (Byte.bytesToString bytes, Byte.bytesToString iv, Byte.bytesToString key)
 
-  fun input {src, input8, iv, key, prev, pad, unpad, operate} =
+  fun input {src, inputBlock, iv, key, prev, pad, unpad, operate} =
         let
-          val (plainText, src') = input8 src
+          val (plainText, src') = inputBlock src
           val paddedText = pad (plainText, prev)
         in
           if Word8Vector.length paddedText = 0 then
-              (plainText, {src=src', input8=input8, iv=plainText, key=key,
+              (plainText, {src=src', inputBlock=inputBlock, iv=plainText, key=key,
               prev=plainText, pad=pad, unpad=unpad, operate=operate})
           else
             let
               val block = operate (key, paddedText, iv)
-              val (next, _) = input8 src'
+              val (next, _) = inputBlock src'
               val block =
                 if Word8Vector.length next = 0
                 then unpad block
                 else block
             in
-              (block, {src=src', input8=input8, iv=block, key=key,
+              (block, {src=src', inputBlock=inputBlock, iv=block, key=key,
               prev=plainText, pad=pad, unpad=unpad, operate=operate})
             end
         end

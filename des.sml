@@ -294,6 +294,8 @@ end
 structure DES = BlockCipherFn(struct
   open DESImpl
 
+  val blockSize = 8
+
   fun blockEncrypt (key, block, v) =
         desBlockEncrypt (xor (block, v), key)
 
@@ -303,6 +305,8 @@ end)
 
 structure TripleDES = BlockCipherFn(struct
   open DESImpl
+
+  val blockSize = 8
 
   fun splitKey key =
         let
