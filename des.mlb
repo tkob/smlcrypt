@@ -4,5 +4,7 @@ in
     $(SMACKAGE)/streamify/v0.2.0/streamify.mlb
     extword8vector.sml
     pad.sml
+    crypt-sig.sml
+    block-cipher-fn.sml
     des.sml
 end

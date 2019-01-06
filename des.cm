@@ -9,4 +9,6 @@ is
 
     extword8vector.sml
     pad.sml
+    crypt-sig.sml
+    block-cipher-fn.sml
     des.sml
