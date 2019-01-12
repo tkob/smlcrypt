@@ -1,0 +1,7 @@
+local
+    $(SML_LIB)/basis/basis.mlb
+    $(SMLUNIT_LIB)/smlunitlib.mlb
+    rsa.mlb
+in
+    rsa-test.sml
+end

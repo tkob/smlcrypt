@@ -1,0 +1,7 @@
+local
+    $(SML_LIB)/basis/basis.mlb
+in
+    $(SMACKAGE)/streamify/v0.2.0/streamify.mlb
+    extword8vector.sml
+    rsa.sml
+end
