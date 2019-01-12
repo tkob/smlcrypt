@@ -11,5 +11,5 @@ aes-test: aes-test.sml aes-test.mlb aes.sml aes.mlb $(COMMON) mlb-path-map
 	mlton -mlb-path-map mlb-path-map aes-test.mlb
 
 clean:
-	rm -f des-test
+	rm -f des-test aes-test
 	rm -rf .cm/
