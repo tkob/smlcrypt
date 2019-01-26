@@ -136,5 +136,3 @@ end) :> CRYPT = struct
           Byte.bytesToString vec
         end
 end
-
-
