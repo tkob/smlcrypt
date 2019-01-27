@@ -430,9 +430,9 @@ structure AES = BlockCipherFn(struct
 
   val blockSize = 16
 
-  fun blockEncrypt (key, block, v) =
-        aesBlockEncrypt (xor (block, v), key)
+  fun blockEncrypt {key, block, vec} =
+        aesBlockEncrypt (xor (block, vec), key)
 
-  fun blockDecrypt (key, block, v) =
-        xor (aesBlockDecrypt (block, key), v)
+  fun blockDecrypt {key, block, vec} =
+        xor (aesBlockDecrypt (block, key), vec)
 end)

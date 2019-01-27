@@ -2,11 +2,15 @@ functor BlockCipherFn(S : sig
   val blockSize : int
 
   val blockEncrypt :
-        (Word8Vector.vector * Word8Vector.vector * Word8Vector.vector)
+        { block : Word8Vector.vector,
+          key : Word8Vector.vector,
+          vec : Word8Vector.vector }
         -> Word8Vector.vector
 
   val blockDecrypt :
-        (Word8Vector.vector * Word8Vector.vector * Word8Vector.vector)
+        { block : Word8Vector.vector,
+          key : Word8Vector.vector,
+          vec : Word8Vector.vector }
         -> Word8Vector.vector
 end) :> CRYPT = struct
   val word8 = Word8.fromLarge o Word.toLarge
@@ -26,7 +30,9 @@ end) :> CRYPT = struct
     prev : Word8Vector.vector,
     pad : Pad.pad,
     unpad : Pad.unpad,
-    operate : (Word8Vector.vector * Word8Vector.vector * Word8Vector.vector) -> Word8Vector.vector
+    operate :
+      { block : Word8Vector.vector, key : Word8Vector.vector, vec : Word8Vector.vector }
+      -> Word8Vector.vector
   }
 
   fun openString' operate (pad, unpad) (s, iv, key) =
@@ -63,7 +69,7 @@ end) :> CRYPT = struct
               prev=plainText, pad=pad, unpad=unpad, operate=operate})
           else
             let
-              val block = operate (key, paddedText, iv)
+              val block = operate {key=key, block=paddedText, vec=iv}
               val (next, _) = inputBlock src'
               val block =
                 if Word8Vector.length next = 0

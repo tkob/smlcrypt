@@ -296,11 +296,11 @@ structure DES = BlockCipherFn(struct
 
   val blockSize = 8
 
-  fun blockEncrypt (key, block, v) =
-        desBlockEncrypt (xor (block, v), key)
+  fun blockEncrypt {key, block, vec} =
+        desBlockEncrypt (xor (block, vec), key)
 
-  fun blockDecrypt (key, block, v) =
-        xor (desBlockDecrypt (block, key), v)
+  fun blockDecrypt {key, block, vec} =
+        xor (desBlockDecrypt (block, key), vec)
 end)
 
 structure TripleDES = BlockCipherFn(struct
@@ -318,21 +318,21 @@ structure TripleDES = BlockCipherFn(struct
           (key1, key2, key3)
         end
 
-  fun blockEncrypt (key, block, v) =
+  fun blockEncrypt {key, block, vec} =
         let
           val (key1, key2, key3) = splitKey key
-          val fst = desBlockEncrypt (xor (block, v), key1)
+          val fst = desBlockEncrypt (xor (block, vec), key1)
           val snd = desBlockDecrypt (fst, key2)
         in
           desBlockEncrypt (snd, key3)
         end
 
-  fun blockDecrypt (key, block, v) =
+  fun blockDecrypt {key, block, vec} =
         let
           val (key1, key2, key3) = splitKey key
-          val fst = desBlockDecrypt (xor (block, v), key3)
+          val fst = desBlockDecrypt (xor (block, vec), key3)
           val snd = desBlockEncrypt (fst, key2)
         in
-          xor (desBlockDecrypt (snd, key1), v)
+          xor (desBlockDecrypt (snd, key1), vec)
         end
 end)
