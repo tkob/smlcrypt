@@ -192,4 +192,20 @@ structure RSA = struct
           Byte.bytesToString vec
         end
 
+  fun encryptBytes (s, key) =
+        let
+          val ins = Encrypt.openBytes (s, key)
+          val (vec, _) = inputAll ins
+        in
+          vec
+        end
+
+  fun decryptBytes (s, key) =
+        let
+          val ins = Decrypt.openBytes (s, key)
+          val (vec , _) = inputAll ins
+        in
+          vec
+        end
+
 end
