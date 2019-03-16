@@ -35,6 +35,22 @@ structure ExtWord8Vector = struct
                                   []
                                   bytes)
 
+  fun hexToBytes h =
+        let
+          fun hexToExplodedString s =
+                if Substring.isEmpty s then []
+                else
+                  let
+                    val (hexByte, rest) = Substring.splitAt (s, 2)
+                    val hexByte = Substring.string hexByte
+                    val SOME w = Word8.fromString hexByte
+                  in
+                    Char.chr (Word8.toInt w)::hexToExplodedString rest
+                  end
+        in
+          Byte.stringToBytes (implode (hexToExplodedString (Substring.full h)))
+        end
+
   fun rotateLeft bytes =
         let
           val len = Word8Vector.length bytes
