@@ -35,6 +35,8 @@ structure ExtWord8Vector = struct
                                   []
                                   bytes)
 
+  fun sliceToHex slice = bytesToHex (Word8VectorSlice.vector slice)
+
   fun hexToBytes h =
         let
           fun hexToExplodedString s =
