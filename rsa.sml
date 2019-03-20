@@ -16,6 +16,8 @@ structure RSA = struct
     operate : BinStream.instream * key -> Word8Vector.vector * BinStream.instream
   }
 
+  fun createKey {modulus, exponent} = { modulus = modulus, exponent = exponent }
+
   fun rsaCompute (m, e, n) =
         (* Compute c = m^e mod n. *)
         let

@@ -29,8 +29,8 @@ structure RSATest = struct
 
   val testPublicKey = Word8Vector.fromList [word8 0wx01, word8 0wx00, word8 0wx01]
 
-  val testPrivateKey = { modulus = testModulus, exponent = testPrivateKey }
-  val testPublicKey = { modulus = testModulus, exponent = testPublicKey }
+  val testPrivateKey = RSA.createKey { modulus = testModulus, exponent = testPrivateKey }
+  val testPublicKey = RSA.createKey { modulus = testModulus, exponent = testPublicKey }
 
   fun testRsaBlockEncrypt plain expected () =
         let
