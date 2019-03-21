@@ -1,0 +1,11 @@
+Library
+    structure HMAC
+    structure PRF
+    structure ExtWord8Vector
+is
+    $/basis.cm
+
+    extword8vector.cm
+    hmac.cm
+
+    prf.sml
