@@ -8,7 +8,7 @@ is
     $SMACKAGE/streamify/v0.2.0/streamify.cm
 
     extword8vector.cm
-    pad.sml
-    crypt-sig.sml
-    block-cipher-fn.sml
+    pad.cm
+    crypt-sig.cm
+    block-cipher-fn.cm
     aes.sml

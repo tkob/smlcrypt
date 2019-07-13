@@ -1,0 +1,12 @@
+Library
+    functor BlockCipherFn
+is
+    $/basis.cm
+
+    /home/ether/streamify/streamify.cm
+
+    pad.cm
+    crypt-sig.cm
+
+    block-cipher-fn.sml
+
