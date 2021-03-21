@@ -8,6 +8,8 @@ Library
     structure X509
     structure ExtWord8Vector
     structure PRF
+
+    structure Main
 is
     $/basis.cm
     $/smlunitlib.cm
@@ -17,6 +19,7 @@ is
     $SMACKAGE/cmlib/v2.3.0/sha256.sml
     $SMACKAGE/poly-basis/v0.1.0/poly-basis.cm
 
+    aes.cm
     rsa.cm
     prf.cm
 

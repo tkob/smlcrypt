@@ -363,6 +363,8 @@ structure ExtAsn1 = struct
         let
           fun sliceToInt slice =
                 let
+                  val () = print ("intsize=" ^ Int.toString (Word8VectorSlice.length slice) ^ "\n")
+                  val () = print ("int=" ^ ExtWord8Vector.sliceToHex slice ^ "\n")
                   fun f (byte, acc) = acc * 256 + Int.toLarge (Word8.toInt byte)
                 in
                   Word8VectorSlice.foldl f (IntInf.fromInt 0) slice
@@ -403,12 +405,9 @@ structure ExtAsn1 = struct
 end
 
 structure X509 = struct
-  type algorithm_identifier = {
-    algorithm : Word8VectorSlice.slice,
-    parameters : ExtAsn1.t option (* TODO *)
-  }
+  datatype algorithm_identifier = RSA | Sha256WithRSA
 
-  type name = unit (* TODO *)
+  type name = string list list
   type validity = {
     notBefore : Date.date,
     notAfter : Date.date
@@ -443,6 +442,7 @@ structure X509 = struct
   fun fromBytes bytes : certificate =
         let
           val [asn1] = ExtAsn1.fromBytes bytes
+          val () = print (ExtAsn1.toString asn1 ^ "\n")
           fun parseCertificate (ExtAsn1.Seq (item1::item2::item3::[])) : certificate =
                 let
                   val tbsCertificate = parseTbsCertificate item1
@@ -488,7 +488,14 @@ structure X509 = struct
           and parseValidity _ =
                 { notBefore = Date.fromTimeUniv (Time.now ()), (* TODO *)
                   notAfter = Date.fromTimeUniv (Time.now ()) } (* TODO *)
-          and parseName _ = () (* TODO *)
+          and parseName (ExtAsn1.Seq rdns) =
+                map parseRDN rdns
+          and parseRDN (ExtAsn1.Set attributeTypeAndValues) =
+                map parseAttributeTypeAndValue attributeTypeAndValues
+          and parseAttributeTypeAndValue (ExtAsn1.Seq [ExtAsn1.Oid attributeType, attributeValue]) =
+                case attributeValue of
+                     ExtAsn1.PrintableString s => s
+                   | _ => ""
           and parseSubjectPublicKeyInfo (ExtAsn1.Seq (item1::item2::[])) =
                 let
                   val algorithm = parseAlgorithmIdentifier item1
@@ -504,10 +511,14 @@ structure X509 = struct
                 raise Fail ("parseBitString: expected BitString, found " ^ ExtAsn1.toString asn1)
           and parseAlgorithmIdentifier (ExtAsn1.Seq (item1::item2::[])) =
                 let
-                  val algorithm = parseOid item1
+                  val oid = parseOid item1
                 in
-                  { algorithm = algorithm,
-                    parameters = NONE } (* TODO *)
+                  if ExtWord8Vector.sliceEqVec (oid, ExtWord8Vector.hexToBytes "2A864886F70D010101") then
+                    RSA
+                  else if ExtWord8Vector.sliceEqVec (oid, ExtWord8Vector.hexToBytes "2A864886F70D01010B") then
+                    Sha256WithRSA
+                  else
+                    raise Fail ("unknown OID: " ^ ExtWord8Vector.sliceToHex oid)
                 end
             | parseAlgorithmIdentifier asn1 =
                 raise Fail ("parseAlgorithmIdentifier: expected 2-elements Seq, found " ^ ExtAsn1.toString asn1)
@@ -518,7 +529,47 @@ structure X509 = struct
           parseCertificate asn1
         end
 
-  fun toString _ = "-"
+  fun toString ({
+          tbsCertificate={
+            version,
+            serialNumber,
+            signatureAlgorithm=_,
+            issuer,
+            validity,
+            subject,
+            subjectPublicKeyInfo,
+            issuerUniqueId,
+            subjectUniqueID,
+            extensions
+          },
+          signatureAlgorithm=_,
+          signatureValue} : certificate) =
+        "{"
+          ^ "tbsCertificate={" 
+            ^ "version=" ^ IntInf.toString version ^ ", "
+            ^ "serialNumber=" ^ IntInf.toString serialNumber ^ ", "
+            (*
+            ^ "signatureAlgorithm=" ^ 
+            *)
+            ^ "issuer=[" ^ String.concatWith ", " (map (String.concatWith ", ") issuer) ^ "], "
+            (*
+            ^ "validity=" ^ 
+            *)
+            ^ "subject=[" ^ String.concatWith ", " (map (String.concatWith ", ") subject) ^ "], "
+            ^ "subjectPublicKeyInfo="
+            ^ "}" 
+            (*
+            ^ "issuerUniqueId=" ^ 
+            ^ "subjectUniqueID=" ^ 
+            ^ "extensions=" ^
+            *)
+          ^ "}, " 
+(*          ^ "signatureAlgorithm={" 
+            ^ "algorithm=" ^ ExtWord8Vector.sliceToHex 
+          ^ "}, " 
+          *)
+          ^ "signatureValue=" ^ ExtWord8Vector.sliceToHex signatureValue
+        ^ "}"
 end
 
 structure Certificates = struct
@@ -816,10 +867,30 @@ structure TLSMessage = struct
   fun toBytes tlsMessage =
         Word8Vector.tabulate (length tlsMessage, fn i => (sub (tlsMessage, i)))
 
+  fun toEncryptedBytes (Handshake handshake, iv, clientWriteKey)  =
+        let
+          val plain = Handshake.toBytes handshake
+          val iv = Word8Vector.tabulate (16, fn i => Word8.fromInt (i + 0x40))
+          val ivLen = Word8Vector.length iv
+          val (encrypted, _)  = AES.Encrypt.inputAll (AES.Encrypt.openBytes Pad.padNist (plain, iv, clientWriteKey))
+          fun sub 0 = contentHandshake
+            | sub 1 = word8 0w3
+            | sub 2 = word8 0w3
+            | sub 3 = IntAsBytes16.sub (ivLen + Word8Vector.length encrypted, 0)
+            | sub 4 = IntAsBytes16.sub (ivLen + Word8Vector.length encrypted, 1)
+            | sub i = if i < 5 + ivLen then Word8Vector.sub (iv, i - 5)
+                      else Word8Vector.sub (encrypted, i - 5 - ivLen)
+        in
+          Word8Vector.tabulate (5 + Word8Vector.length iv + Word8Vector.length encrypted + 5, fn i => sub i)
+        end
+
   fun fromStream ins =
         let
           val word = Word.fromLarge o Word8.toLarge
+          val () = print "reading leading 5 bytes\n"
           val (tlsHeader, ins) = BinStream.inputN (ins, 5)
+          val _ = Word8Vector.length tlsHeader = 5
+                  orelse raise Fail "unable to receive TLS header"
           val contentType = word (Word8Vector.sub (tlsHeader, 0))
           val majorVersion = word (Word8Vector.sub (tlsHeader, 1))
           val minorVersion = word (Word8Vector.sub (tlsHeader, 2))
@@ -861,7 +932,14 @@ structure Main = struct
                   sock
                 end
           val sock = connect (host, port)
-          val ins = BinStream.fromFun (fn () => Socket.recvVec (sock, 2048))
+          val ins = BinStream.fromFun (fn () =>
+                let
+                  val () = print ("recvVec\n")
+                  val v = Socket.recvVec (sock, 2048)
+                in
+                  print ("read : "^ExtWord8Vector.bytesToHex v ^ "\n");
+                  v
+                end)
           val () = print ("socket connected\n")
           (* Step 1. Send the TLS handshake "client hello" message *)
           val clientHello = ClientHello.clientHello {
@@ -869,7 +947,7 @@ structure Main = struct
             minorVersion = 0w3,
             gmtUnixTime = Time.now (),
             randomBytes = Byte.stringToBytes "0123456789012345678901234567",
-            cipherSuites = CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA }
+            cipherSuites = CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA256 }
             (*cipherSuites = CipherSuite.TLS_RSA_WITH_3DES_EDE_CBC_SHA }*)
             (*cipherSuites = CipherSuite.TLS_RSA_WITH_DES_CBC_SHA }*)
           fun sendClientHello (sock, clientHello) =
@@ -890,12 +968,13 @@ structure Main = struct
           fun receiveServerHello ins =
                 let
                   val (TLSMessage.Handshake (Handshake.ServerHello serverHello), receivedServerHello, ins) = TLSMessage.fromStream ins
-                  val () = print (ServerHello.toString serverHello ^ "\n")
+                  val () = print ("serverhello:" ^ ServerHello.toString serverHello ^ "\n")
                 in
                   receiveServerCertificates (ins, serverHello, receivedServerHello)
                 end
           and receiveServerCertificates (ins, serverHello, receivedServerHello) =
                 let
+                  val () = print "receiving server certificates\n"
                   val (serverCertificates, receivedServerCertificates, ins) = TLSMessage.fromStream ins
                   val () = print (TLSMessage.toString serverCertificates ^ "\n")
                 in
@@ -920,6 +999,7 @@ structure Main = struct
                 in
                   Word8Vector.tabulate (48, f)
                 end
+          val () = print (ExtWord8Vector.bytesToHex premasterSecret ^ "\n")
           fun sendClientKeyExchange (sock, premasterSecret, serverCertificates) =
                 let
                   val TLSMessage.Handshake (Handshake.Certificates certs) = serverCertificates
@@ -927,16 +1007,25 @@ structure Main = struct
                         let
                           val subjectPublicKey =
                             #subjectPublicKey (#subjectPublicKeyInfo (#tbsCertificate cert))
+                          val () = print (ExtWord8Vector.sliceToHex subjectPublicKey ^ "\n")
                           val key = case ExtAsn1.fromBytes subjectPublicKey of
                                          [ExtAsn1.Seq ([ExtAsn1.Int modulus, ExtAsn1.Int exponent])] =>
-                                           { modulus = RSA.packIntInf (modulus, 64),
-                                             exponent = RSA.packIntInf (exponent, 64) }
-                                       | _ => raise Fail ""
+                                         (
+                                         print (IntInf.toString modulus ^ ", " ^ IntInf.toString exponent ^ "\n");
+                                         print (ExtWord8Vector.bytesToHex (RSA.packIntInf (modulus, 256)) ^ "\n")
+                                         ;
+                                           (*{ modulus = RSA.packIntInf * (modulus, 256), *)
+                                           { modulus = Word8Vector.tabulate (256, fn _ => word8 0w1),
+                                             exponent = RSA.packIntInf (exponent, 4) }
+                                             )
+                                       | _ => raise Fail "cannot read subject public key"
                         in
                           key
                         end
                   val publicKey = getPublicKey (hd certs)
                   val encryptedPremasterSecret = RSA.encryptBytes (premasterSecret, publicKey)
+                  val () = print ("premaser: " ^ ExtWord8Vector.bytesToHex premasterSecret ^ "\n")
+                  val () = print ("encpremaser: " ^ ExtWord8Vector.bytesToHex encryptedPremasterSecret ^ "\n")
                   val clientKeyExchange = ClientKeyExchange.RSAKeyExchange encryptedPremasterSecret
                   val handshake = Handshake.ClientKeyExchange clientKeyExchange
                   val tlsMessage = TLSMessage.Handshake handshake
@@ -949,9 +1038,10 @@ structure Main = struct
                     raise Fail "failed to send client key exchange"
                 end
           val sentClientKeyExchange = sendClientKeyExchange (sock, premasterSecret, serverCertificates)
-          val prf = PRF.prf HMAC.hmacSha256
-          val masterSecretLabel = Byte.stringToBytes "master secret"
-          val masterSecret = prf (premasterSecret, masterSecretLabel, Word8Vector.concat [clientRandom, serverRandom], 48)
+          fun calculateClientEncryptionKeys (serverRandom, clientRandom, serverPublicKey, clientPrivateKey) =
+            raise Fail ""
+          val (clientMacKey, serverMacKey, clientWriteKey, serverWriteKey, clientWriteIv, serverWriteIv) =
+            calculateClientEncryptionKeys (serverRandom, clientRandom, serverPublicKey, clientPrivateKey)
           fun sendChangeCipherSpec sock =
                 let
                   val tlsMessage = TLSMessage.ChangeCipherSpec
@@ -964,13 +1054,15 @@ structure Main = struct
                     raise Fail "failed to send client change cipher spec"
                 end
           val sentChangeCipherSpec = sendChangeCipherSpec sock
+          val prf = PRF.prf HMAC.hmacSha256
+          val masterSecretLabel = Byte.stringToBytes "master secret"
+          val masterSecret = prf (premasterSecret, masterSecretLabel, Word8Vector.concat [clientRandom, serverRandom], 48)
           val handshakeMessages = [
              sentClientHello,
              receivedServerHello,
              receivedServerCertificates,
              receivedServerHelloDone,
-             sentClientKeyExchange,
-             sentChangeCipherSpec ]
+             sentClientKeyExchange ]
           fun sendFinished (sock, masterSecret, handshakeMessages) =
                 let
                   val clientFinished =
@@ -978,6 +1070,7 @@ structure Main = struct
                   val handshake = Handshake.Finished clientFinished
                   val tlsMessage = TLSMessage.Handshake handshake
                   val bytes = TLSMessage.toBytes tlsMessage
+                  val () = print ("finished:" ^ ExtWord8Vector.bytesToHex bytes ^ "\n")
                   val len = Socket.sendVec (sock, Word8VectorSlice.full bytes)
                 in
                   if len = Word8Vector.length bytes then
@@ -986,6 +1079,10 @@ structure Main = struct
                     raise Fail "failed to send client finished"
                 end
           val sentFinished = sendFinished (sock, masterSecret, handshakeMessages)
+          (*
+          *)
+          val (serverChangeCipherSpec, rest, ins) = TLSMessage.fromStream ins
+          val () = print (TLSMessage.toString serverChangeCipherSpec)
         in
           ()
           (*
@@ -996,5 +1093,5 @@ structure Main = struct
         end
 end
 
-val _ = Main.main ("www.google.com", 443)
+(* val _ = Main.main ("localhost", 8443) *)
 

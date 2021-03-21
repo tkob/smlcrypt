@@ -20,6 +20,7 @@ structure ExtWord8Vector :> sig
   val base16 : vector -> string
   val base16lower : vector -> string
 
+  val sliceEqVec : Word8VectorSlice.slice * vector -> bool
 end = struct
 
   open Word8Vector
@@ -132,5 +133,12 @@ end = struct
   val bytesToHex = base16
   fun sliceToHex slice = bytesToHex (Word8VectorSlice.vector slice)
 
+  fun sliceEqVec (slice, vec) =
+        Word8VectorSlice.length slice = Word8Vector.length vec
+        andalso
+        Word8VectorSlice.foldli
+          (fn (i, e, a) => a andalso e = Word8Vector.sub (vec, i))
+          true
+          slice
 
 end

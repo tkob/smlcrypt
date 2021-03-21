@@ -117,7 +117,7 @@ structure RSA = struct
               val n = unpackIntInf modulus
               val c = rsaCompute (m, e, n)
             in
-              (packIntInf (c, 64), src')
+              (packIntInf (c, modulusLength), src')
             end
         end
 
